@@ -1,23 +1,22 @@
 import { context as api_context, trace, SpanOptions, SpanKind, Exception, SpanStatusCode } from '@opentelemetry/api'
 import { SemanticAttributes } from '@opentelemetry/semantic-conventions'
-import { passthroughGet, unwrap, wrap } from './wrap'
+import { passthroughGet, unwrap, wrap } from '../wrap.js'
 import {
 	getParentContextFromHeaders,
 	gatherIncomingCfAttributes,
 	gatherRequestAttributes,
 	gatherResponseAttributes,
 	instrumentFetcher,
-} from './fetch'
-import { instrumentEnv } from './env'
-import { Initialiser, setConfig } from '../config'
-import { exportSpans } from './common'
-import { instrumentStorage } from './do-storage'
+} from './fetch.js'
+import { instrumentEnv } from './env.js'
+import { Initialiser, setConfig } from '../config.js'
+import { exportSpans } from './common.js'
+import { instrumentStorage } from './do-storage.js'
+import { DOConstructorTrigger } from '../types.js'
 
 type FetchFn = DurableObject['fetch']
 type AlarmFn = DurableObject['alarm']
 type Env = Record<string, unknown>
-
-const traceIdSymbol = Symbol('traceId')
 
 function instrumentBindingStub(stub: DurableObjectStub, nsName: string): DurableObjectStub {
 	const stubHandler: ProxyHandler<typeof stub> = {
@@ -153,8 +152,7 @@ function instrumentFetchFn(fetchFn: FetchFn, initialiser: Initialiser, env: Env,
 			} catch (error) {
 				throw error
 			} finally {
-				const traceId = context.getValue(traceIdSymbol) as string
-				exportSpans(traceId)
+				exportSpans()
 			}
 		},
 	}
@@ -174,8 +172,7 @@ function instrumentAlarmFn(alarmFn: AlarmFn, initialiser: Initialiser, env: Env,
 			} catch (error) {
 				throw error
 			} finally {
-				const traceId = context.getValue(traceIdSymbol) as string
-				exportSpans(traceId)
+				exportSpans()
 			}
 		},
 	}
@@ -206,9 +203,19 @@ function instrumentDurableObject(doObj: DurableObject, initialiser: Initialiser,
 export function instrumentDOClass(doClass: DOClass, initialiser: Initialiser): DOClass {
 	const classHandler: ProxyHandler<DOClass> = {
 		construct(target, [orig_state, orig_env]: ConstructorParameters<DOClass>) {
+			const trigger: DOConstructorTrigger = {
+				id: orig_state.id.toString(),
+				name: orig_state.id.name,
+			}
+			const constructorConfig = initialiser(orig_env, trigger)
+			const context = setConfig(constructorConfig)
 			const state = instrumentState(orig_state)
 			const env = instrumentEnv(orig_env)
-			const doObj = new target(state, env)
+			const createDO = () => {
+				return new target(state, env)
+			}
+			const doObj = api_context.with(context, createDO)
+
 			return instrumentDurableObject(doObj, initialiser, env, state)
 		},
 	}

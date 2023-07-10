@@ -1,6 +1,6 @@
 import { trace } from '@opentelemetry/api'
-import { WorkerTracer } from '../tracer'
-import { wrap } from './wrap'
+import { WorkerTracer } from '../tracer.js'
+import { wrap } from '../wrap.js'
 
 type ContextAndTracker = { ctx: ExecutionContext; tracker: PromiseTracker }
 type WaitUntilFn = ExecutionContext['waitUntil']
@@ -44,7 +44,7 @@ export function proxyExecutionContext(context: ExecutionContext): ContextAndTrac
 	return { ctx, tracker }
 }
 
-export async function exportSpans(traceId: string, tracker?: PromiseTracker) {
+export async function exportSpans(tracker?: PromiseTracker) {
 	const tracer = trace.getTracer('export')
 	if (tracer instanceof WorkerTracer) {
 		await scheduler.wait(1)

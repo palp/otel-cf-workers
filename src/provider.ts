@@ -1,10 +1,10 @@
-import { AsyncLocalStorageContextManager } from './context'
 import { context, trace, Tracer, TracerOptions, TracerProvider } from '@opentelemetry/api'
 
 import { SpanProcessor } from '@opentelemetry/sdk-trace-base'
 import { Resource } from '@opentelemetry/resources'
 
-import { WorkerTracer } from './tracer'
+import { AsyncLocalStorageContextManager } from './context.js'
+import { WorkerTracer } from './tracer.js'
 
 /**
  * Register this TracerProvider for use with the OpenTelemetry API.
